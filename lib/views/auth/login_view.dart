@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../employer/employer_profile_view.dart'; // Import hinzufügen
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -75,12 +76,32 @@ class _LoginViewState extends State<LoginView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
-                onPressed: authVM.isLoading ? null : () {
-                  authVM.login(_emailController.text, _passwordController.text);
-                },
-                child: authVM.isLoading 
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Einloggen", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                onPressed: authVM.isLoading
+                    ? null
+                    : () async {
+                        // 1. Login-Methode aufrufen
+                        await authVM.login(
+                            _emailController.text, _passwordController.text);
+
+                        // 2. Prüfen, ob das Widget noch gemounted ist
+                        if (!context.mounted) return;
+
+                        // 3. Wenn Login erfolgreich, navigieren
+                        if (authVM.errorMessage == null) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const EmployerProfileView()),
+                          );
+                        }
+                      },
+                child: authVM.isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("Einloggen",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600)),
               ),
             ),
             
