@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import 'login_view.dart';
 
 class RegisterView extends StatefulWidget {
   final String userType;
@@ -79,15 +80,33 @@ class _RegisterViewState extends State<RegisterView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
-                onPressed: authVM.isLoading ? null : () {
-                  // Wir schicken den Text aus dem extraController mit
-                  authVM.register(
+
+                // ANPASSUNG HIER: async hinzufügen
+                onPressed: authVM.isLoading ? null : () async {
+                  await authVM.register(
                     _emailController.text,
                     _passwordController.text,
                     _nameController.text,
                     widget.userType,
                   );
+                  // Prüfen, ob die Registrierung erfolgreich war
+                  if (authVM.errorMessage == null && mounted) {
+                    // Kurzes Feedback für den Nutzer
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Registrierung erfolgreich! Bitte logge dich ein."),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+
+                    // Weiterleitung zur Login-Seite
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginView()),
+                    );
+                  }
                 },
+                
                 child: authVM.isLoading 
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text("Registrieren", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
