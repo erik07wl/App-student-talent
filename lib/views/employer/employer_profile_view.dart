@@ -129,55 +129,59 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
 
                   const SizedBox(height: 48),
 
-                  // Buttons (Unten)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          // TODO: Abbrechen
-                        },
-                        child: const Text(
-                          'Abbrechen',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          // TODO: Matching starten
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB), // Blau
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 20),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                  // Buttons (Unten) - Row durch Wrap ersetzt für Responsive Design
+                  Align(
+                    alignment: Alignment.centerRight, // Rechtsbündig wie im Design
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12, // Horizontaler Abstand zwischen den Buttons
+                      runSpacing: 12, // Vertikaler Abstand, falls eine neue Zeile angefangen wird
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            // TODO: Abbrechen
+                          },
+                          child: const Text(
+                            'Abbrechen',
+                            style: TextStyle(color: Colors.grey),
                           ),
                         ),
-                        child: const Text('Matching starten',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          // TODO: Änderungen speichern
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color(0xFF1F2937), // Dunkelgrau/Schwarz
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 20),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                        ElevatedButton(
+                          onPressed: () {
+                            // TODO: Matching starten
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB), // Blau
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
+                          child: const Text('Matching starten',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                        child: const Text('Änderungen speichern',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                        ElevatedButton(
+                          onPressed: () {
+                            // TODO: Änderungen speichern
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color(0xFF1F2937), // Dunkelgrau/Schwarz
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Änderungen speichern',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
