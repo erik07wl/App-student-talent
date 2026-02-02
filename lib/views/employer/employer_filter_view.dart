@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../repositories/student_repository.dart'; // Repository importieren
 
 class EmployerFilterView extends StatefulWidget {
   const EmployerFilterView({super.key});
@@ -8,27 +9,32 @@ class EmployerFilterView extends StatefulWidget {
 }
 
 class _EmployerFilterViewState extends State<EmployerFilterView> {
-  // Mock-Daten für verfügbare Fähigkeiten
-  final List<String> _availableSkills = [
-    "Flutter",
-    "Dart",
-    "Python",
-    "Java",
-    "React",
-    "JavaScript",
-    "UI/UX Design",
-    "Figma",
-    "Projektmanagement",
-    "Agile (Scrum)",
-    "Englisch",
-    "Deutsch",
-    "SQL",
-    "Git",
-    "Teamfähigkeit"
-  ];
+  // Keine Mock-Daten mehr, sondern leere Liste initialisieren
+  List<String> _availableSkills = [];
+  bool _isLoading = true;
 
-  // Set speichert die ausgewählten Skills (verhindert Duplikate)
+  // Set speichert die ausgewählten Skills
   final Set<String> _selectedSkills = {};
+
+  final StudentRepository _studentRepository = StudentRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealSkills();
+  }
+
+  // Lädt die Skills aus der Datenbank
+  Future<void> _loadRealSkills() async {
+    final skills = await _studentRepository.getAllStudentSkills();
+    
+    if (mounted) {
+      setState(() {
+        _availableSkills = skills;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +88,7 @@ class _EmployerFilterViewState extends State<EmployerFilterView> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Wähle die Fähigkeiten aus, die ein Student mitbringen sollte.',
+                    'Wähle aus den aktuell verfügbaren Fähigkeiten der Studenten.',
                     style: TextStyle(
                       color: Colors.grey,
                       fontSize: 16,
@@ -92,59 +98,70 @@ class _EmployerFilterViewState extends State<EmployerFilterView> {
                   const Divider(height: 1),
                   const SizedBox(height: 24),
 
-                  _buildLabel('Gesuchte Fähigkeiten'),
+                  _buildLabel('Verfügbare Fähigkeiten'),
                   const SizedBox(height: 12),
-                  
-                  // Filter Chips Area
-                  Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    children: _availableSkills.map((skill) {
-                      final isSelected = _selectedSkills.contains(skill);
-                      return FilterChip(
-                        label: Text(skill),
-                        selected: isSelected,
-                        onSelected: (bool selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedSkills.add(skill);
-                            } else {
-                              _selectedSkills.remove(skill);
-                            }
-                          });
-                        },
-                        selectedColor: Colors.blue.withOpacity(0.2),
-                        checkmarkColor: Colors.blue,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.blue[800] : Colors.black87,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        backgroundColor: Colors.grey[100],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isSelected ? Colors.blue : Colors.grey.shade300,
-                            width: 1,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+
+                  // Ladeanzeige oder Chips
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _availableSkills.isEmpty
+                          ? const Text("Keine Fähigkeiten gefunden.")
+                          : Wrap(
+                              spacing: 8.0,
+                              runSpacing: 8.0,
+                              children: _availableSkills.map((skill) {
+                                final isSelected =
+                                    _selectedSkills.contains(skill);
+                                return FilterChip(
+                                  label: Text(skill),
+                                  selected: isSelected,
+                                  onSelected: (bool selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedSkills.add(skill);
+                                      } else {
+                                        _selectedSkills.remove(skill);
+                                      }
+                                    });
+                                  },
+                                  selectedColor: Colors.blue.withOpacity(0.2),
+                                  checkmarkColor: Colors.blue,
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? Colors.blue[800]
+                                        : Colors.black87,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  backgroundColor: Colors.grey[100],
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    side: BorderSide(
+                                      color: isSelected
+                                          ? Colors.blue
+                                          : Colors.grey.shade300,
+                                      width: 1,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
 
                   const SizedBox(height: 48),
 
-                  // Buttons (Responsive Wrap wie im Profil)
+                  // Buttons
                   Align(
                     alignment: Alignment.centerRight,
                     child: Wrap(
                       alignment: WrapAlignment.end,
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12, 
+                      spacing: 12,
                       runSpacing: 12,
                       children: [
                         TextButton(
                           onPressed: () {
-                             Navigator.pop(context); // Zurück zum Profil
+                            Navigator.pop(context);
                           },
                           child: const Text(
                             'Zurück zum Profil',
@@ -153,12 +170,11 @@ class _EmployerFilterViewState extends State<EmployerFilterView> {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            // TODO: Matching Logik mit Filtern starten
-                            // Navigator.push(context, MaterialPageRoute(builder: (context) => MatchingView(filters: _selectedSkills)));
-                            print("Matching gestartet mit Skills: $_selectedSkills");
+                            // TODO: Matching Logik aufrufen
+                            print("Filter gewählt: $_selectedSkills");
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB), // Blau
+                            backgroundColor: const Color(0xFF2563EB),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 20),
