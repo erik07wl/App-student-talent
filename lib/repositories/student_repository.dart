@@ -58,4 +58,32 @@ class StudentRepository {
       return [];
     }
   }
+
+  // Holt Studenten die mindestens einen der gewählten Skills haben
+  Future<List<StudentModel>> getStudentsBySkills(Set<String> selectedSkills) async {
+    try {
+      final querySnapshot = await _firestore.collection(_collection).get();
+      
+      List<StudentModel> matchedStudents = [];
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final List<dynamic> studentSkills = data['skills'] ?? [];
+        
+        // Prüfen ob der Student mindestens einen der gewählten Skills hat
+        final hasMatchingSkill = studentSkills.any(
+          (skill) => selectedSkills.contains(skill.toString().trim())
+        );
+
+        if (hasMatchingSkill) {
+          matchedStudents.add(StudentModel.fromMap(data, doc.id));
+        }
+      }
+
+      return matchedStudents;
+    } catch (e) {
+      print("Fehler beim Laden der Studenten: $e");
+      return [];
+    }
+  }
 }
