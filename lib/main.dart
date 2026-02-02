@@ -6,6 +6,7 @@ import 'views/auth/login_view.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/auth/start_view.dart';
 import 'viewmodels/employer_viewmodel.dart'; // Import hinzufügen
+import 'viewmodels/student_viewmodel.dart'; // Import neu
 
 
 void main() async {
@@ -17,7 +18,8 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
-        ChangeNotifierProvider(create: (_) => EmployerViewModel()), // Hier registrieren
+        ChangeNotifierProvider(create: (_) => EmployerViewModel()),
+        ChangeNotifierProvider(create: (_) => StudentViewModel()), // Hier neu
       ],
       child: const StudentMatchApp(),
     ),
