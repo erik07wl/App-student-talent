@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'employer_filter_view.dart'; // WICHTIG: Import hinzufügen
+import 'package:provider/provider.dart';
+import '../../viewmodels/employer_viewmodel.dart';
+import 'employer_filter_view.dart';
 
 class EmployerProfileView extends StatefulWidget {
   const EmployerProfileView({super.key});
@@ -9,19 +11,90 @@ class EmployerProfileView extends StatefulWidget {
 }
 
 class _EmployerProfileViewState extends State<EmployerProfileView> {
-  // Controller für die Textfelder
-  final TextEditingController _companyNameController =
-      TextEditingController(text: "OSCORP");
-  final TextEditingController _locationController =
-      TextEditingController(text: "Berlin");
-  final TextEditingController _descriptionController = TextEditingController(
-      text:
-          "Wir sind nett und wir arbeiten jeden Tag von 8 bis 23 Uhr um unseren Kunden die bestmöglichen Ergebnisse zu liefern.\nObstkorb ist vorhanden und Wasser gibts umsonst.");
+  // Controller initial leer lassen (oder Lade-Text anzeigen)
+  final TextEditingController _companyNameController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Daten laden, sobald das Widget gebaut wurde
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
+  }
+
+  // Hilfsmethode zum Laden und Befüllen der Felder
+  Future<void> _loadUserData() async {
+    final employerVM = Provider.of<EmployerViewModel>(context, listen: false);
+    
+    // 1. Daten aus Firebase laden
+    await employerVM.loadCurrentEmployer();
+
+    // 2. Felder befüllen, wenn Daten vorhanden sind
+    if (employerVM.currentEmployer != null) {
+      setState(() {
+        _companyNameController.text = employerVM.currentEmployer!.companyName;
+        _locationController.text = employerVM.currentEmployer!.location;
+        _descriptionController.text = employerVM.currentEmployer!.description;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _companyNameController.dispose();
+    _locationController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  // Echte Speicher-Funktion via ViewModel
+  Future<void> _saveProfile() async {
+    // Zugriff auf ViewModel
+    final employerVM = Provider.of<EmployerViewModel>(context, listen: false);
+
+    // Daten speichern
+    final success = await employerVM.saveProfile(
+      companyName: _companyNameController.text.trim(),
+      location: _locationController.text.trim(),
+      description: _descriptionController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    // Feedback geben
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil in Firebase gespeichert!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler: ${employerVM.errorMessage}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final employerVM = Provider.of<EmployerViewModel>(context);
+
+    // Lade-Indikator anzeigen, während Daten geholt werden
+    if (employerVM.isLoading && employerVM.currentEmployer == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Colors.grey[50], // Leichter Grauton für den Hintergrund
+      backgroundColor: Colors.grey[50], 
       appBar: AppBar(
         title: const Text(
           'TalentMatch',
@@ -130,62 +203,53 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
 
                   const SizedBox(height: 48),
 
-                  // Buttons (Unten) - Row durch Wrap ersetzt für Responsive Design
+                  // Buttons
                   Align(
-                    alignment: Alignment.centerRight, // Rechtsbündig wie im Design
+                    alignment: Alignment.centerRight,
                     child: Wrap(
                       alignment: WrapAlignment.end,
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12, // Horizontaler Abstand zwischen den Buttons
-                      runSpacing: 12, // Vertikaler Abstand, falls eine neue Zeile angefangen wird
+                      spacing: 12, 
+                      runSpacing: 12, 
                       children: [
                         TextButton(
-                          onPressed: () {
-                            // TODO: Abbrechen
+                          onPressed: () { 
+                             // Optional: Reset
                           },
-                          child: const Text(
-                            'Abbrechen',
-                            style: TextStyle(color: Colors.grey),
-                          ),
+                          child: const Text('Abbrechen', style: TextStyle(color: Colors.grey)),
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            // Navigation zur Filter-Seite beim Klick auf "Matching starten"
                             Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => const EmployerFilterView(),
-                              ),
+                              MaterialPageRoute(builder: (context) => const EmployerFilterView()),
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB), // Blau
+                            backgroundColor: const Color(0xFF2563EB), 
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Matching starten',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Matching starten', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
+                        
+                        // SPEICHERN BUTTON MIT ECHTER LOGIK
                         ElevatedButton(
-                          onPressed: () {
-                            // TODO: Änderungen speichern
-                          },
+                          onPressed: employerVM.isLoading ? null : _saveProfile,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color(0xFF1F2937), // Dunkelgrau/Schwarz
+                            backgroundColor: const Color(0xFF1F2937),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Änderungen speichern',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: employerVM.isLoading 
+                              ? const SizedBox(
+                                  width: 20, 
+                                  height: 20, 
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                                )
+                              : const Text('Änderungen speichern', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),

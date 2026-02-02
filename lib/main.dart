@@ -5,19 +5,19 @@ import 'firebase_options.dart';
 import 'views/auth/login_view.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/auth/start_view.dart';
+import 'viewmodels/employer_viewmodel.dart'; // Import hinzufügen
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialisiert Firebase für alle Plattformen (Web/Android/iOS)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(
-    // Der MultiProvider MUSS hier stehen, damit Login & Register funktionieren
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
+        ChangeNotifierProvider(create: (_) => EmployerViewModel()), // Hier registrieren
       ],
       child: const StudentMatchApp(),
     ),

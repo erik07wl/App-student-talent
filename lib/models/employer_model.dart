@@ -3,12 +3,14 @@ class EmployerModel {
   final String companyName;
   final String email;
   final String description;
+  final String location; // Neu hinzugefügt
 
   EmployerModel({
     required this.id,
     required this.companyName,
     required this.email,
     required this.description,
+    required this.location, // Neu
   });
 
   factory EmployerModel.fromMap(Map<String, dynamic> data, String documentId) {
@@ -17,6 +19,7 @@ class EmployerModel {
       companyName: data['companyName'] ?? '',
       email: data['email'] ?? '',
       description: data['description'] ?? '',
+      location: data['location'] ?? '', // Neu
     );
   }
 
@@ -25,6 +28,7 @@ class EmployerModel {
       'companyName': companyName,
       'email': email,
       'description': description,
+      'location': location, // Neu
     };
   }
 }
