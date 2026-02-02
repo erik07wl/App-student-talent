@@ -88,31 +88,64 @@ class _LoginViewState extends State<LoginView> {
                         // 2. Prüfen, ob das Widget noch gemounted ist
                         if (!context.mounted) return;
 
-                        // 3. Wenn Login erfolgreich, Rolle prüfen und navigieren
+                        // 3. Wenn Login erfolgreich, userType prüfen
                         if (authVM.errorMessage == null) {
                           final user = FirebaseAuth.instance.currentUser;
 
                           if (user != null) {
-                            // Prüfen ob Student-Dokument existiert
-                            final studentDoc = await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(user.uid)
-                                .get();
+                            try {
+                              // User-Dokument laden
+                              final userDoc = await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .get();
 
-                            if (!context.mounted) return;
+                              if (!context.mounted) return;
 
-                            if (studentDoc.exists) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const StudentProfileView()),
-                              );
-                            } else {
-                              // Wenn nicht Student, dann als Employer weiterleiten
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const EmployerProfileView()),
+                              if (userDoc.exists) {
+                                // userType auslesen
+                                final data = userDoc.data();
+                                final userType = data?['userType'] as String?;
+
+                                // Routing basierend auf userType
+                                if (userType == 'student') {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const StudentProfileView()),
+                                  );
+                                } else if (userType == 'employer') {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const EmployerProfileView()),
+                                  );
+                                } else {
+                                  // Fallback, wenn userType leer oder unbekannt ist
+                                  // Navigiere z.B. zum Employer Profil oder zeige Fehler
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const EmployerProfileView()),
+                                  );
+                                }
+                              } else {
+                                // Dokument existiert nicht -> Fallback (z.B. Employer)
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const EmployerProfileView()),
+                                );
+                              }
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Fehler beim Laden des Profils: $e')),
                               );
                             }
                           }

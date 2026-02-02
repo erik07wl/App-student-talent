@@ -3,7 +3,7 @@ import '../models/student_model.dart';
 
 class StudentRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _collection = 'students';
+  final String _collection = 'students'; // Bzw. 'users', je nach deiner Struktur
 
   // Speichert oder aktualisiert die Studentendaten
   Future<void> saveStudentData(StudentModel student) async {
@@ -28,6 +28,34 @@ class StudentRepository {
     } catch (e) {
       print(e);
       return null;
+    }
+  }
+
+  // Holt alle einzigartigen Skills aller Studenten
+  Future<List<String>> getAllStudentSkills() async {
+    try {
+      final querySnapshot = await _firestore.collection(_collection).get();
+      
+      // Ein Set verhindert Duplikate automatisch
+      final Set<String> uniqueSkills = {};
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        if (data.containsKey('skills')) {
+          // Wir gehen davon aus, dass 'skills' eine Liste ist
+          final List<dynamic> skills = data['skills'];
+          for (var skill in skills) {
+            uniqueSkills.add(skill.toString().trim());
+          }
+        }
+      }
+
+      // Sortierte Liste zurückgeben
+      final sortedList = uniqueSkills.toList()..sort();
+      return sortedList;
+    } catch (e) {
+      print("Fehler beim Laden der Skills: $e");
+      return [];
     }
   }
 }
