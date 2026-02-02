@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../viewmodels/auth_viewmodel.dart';
-import '../employer/employer_profile_view.dart'; // Import hinzufügen
+import '../employer/employer_profile_view.dart';
+import '../student/student_profile_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -53,7 +56,6 @@ class _LoginViewState extends State<LoginView> {
             _buildCustomTextField(_passwordController, "••••••••", isPassword: true),
 
             const SizedBox(height: 10),
-            // Passwort vergessen Platzhalter (optional, sieht aber professionell aus)
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -86,13 +88,34 @@ class _LoginViewState extends State<LoginView> {
                         // 2. Prüfen, ob das Widget noch gemounted ist
                         if (!context.mounted) return;
 
-                        // 3. Wenn Login erfolgreich, navigieren
+                        // 3. Wenn Login erfolgreich, Rolle prüfen und navigieren
                         if (authVM.errorMessage == null) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const EmployerProfileView()),
-                          );
+                          final user = FirebaseAuth.instance.currentUser;
+
+                          if (user != null) {
+                            // Prüfen ob Student-Dokument existiert
+                            final studentDoc = await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .get();
+
+                            if (!context.mounted) return;
+
+                            if (studentDoc.exists) {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const StudentProfileView()),
+                              );
+                            } else {
+                              // Wenn nicht Student, dann als Employer weiterleiten
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const EmployerProfileView()),
+                              );
+                            }
+                          }
                         }
                       },
                 child: authVM.isLoading
