@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../repositories/student_repository.dart'; // Repository importieren
+import '../../repositories/student_repository.dart';
+import 'employer_swipe_view.dart'; // Import hinzufügen
 
 class EmployerFilterView extends StatefulWidget {
   const EmployerFilterView({super.key});
@@ -170,8 +171,15 @@ class _EmployerFilterViewState extends State<EmployerFilterView> {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            // TODO: Matching Logik aufrufen
-                            print("Filter gewählt: $_selectedSkills");
+                            // Zur Swipe-Ansicht navigieren mit den gewählten Skills
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EmployerSwipeView(
+                                  selectedSkills: _selectedSkills,
+                                ),
+                              ),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2563EB),
