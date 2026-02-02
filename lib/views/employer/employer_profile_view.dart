@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'employer_filter_view.dart'; // WICHTIG: Import hinzufügen
 
 class EmployerProfileView extends StatefulWidget {
   const EmployerProfileView({super.key});
@@ -149,7 +150,13 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            // TODO: Matching starten
+                            // Navigation zur Filter-Seite beim Klick auf "Matching starten"
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const EmployerFilterView(),
+                              ),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2563EB), // Blau
