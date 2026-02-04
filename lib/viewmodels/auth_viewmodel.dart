@@ -26,16 +26,22 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     _setLoading(true);
     _errorMessage = null;
-    
+  try{
     final result = await _authRepo.signIn(email, password);
     
-    if (result == null) {
-      _errorMessage = "Login fehlgeschlagen. Bitte Daten prüfen."; // Diagramm: "show error"
-    }
-    
+    if (result != null && !result.emailVerified) {
+        await _authRepo.signOut(); // Wieder rauswerfen
+        _errorMessage = "Bitte bestätige erst deine E-Mail-Adresse in deinem Postfach.";
+      } else if (result == null) {
+        _errorMessage = "Login fehlgeschlagen. Bitte Daten prüfen.";
+      }
+    } catch (e) {
+      // Fängt Fehler wie "Falsches Passwort" ab
+      _errorMessage = "Login fehlgeschlagen oder E-Mail unbekannt.";
+    } finally {
     _setLoading(false);
+    }
   }
-
   // Registrierungs-Logik (Diagramm: "register" Pfad)
   Future<void> register(String email, String password, String name, String type) async {
     _setLoading(true);
@@ -50,6 +56,8 @@ class AuthViewModel extends ChangeNotifier {
 
     if (result == null) {
       _errorMessage = "Registrierung fehlgeschlagen."; // Diagramm: "show error"
+    } else {
+      await _authRepo.sendEmailVerification();
     }
 
     _setLoading(false);
