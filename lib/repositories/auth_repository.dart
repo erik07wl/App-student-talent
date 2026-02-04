@@ -26,8 +26,7 @@ class AuthRepository {
       User? user = result.user;
 
       if (user != null) {
-        // Diagramm: "verify" -> Wir könnten hier user.sendEmailVerification() aufrufen
-        
+           
         // Legt das Profil in Firestore an (entspricht eurem Write in DB)
         await _firestore.collection('users').doc(user.uid).set({
           'uid': user.uid,
@@ -44,18 +43,13 @@ class AuthRepository {
     }
   }
 
-  // 3. Login (Diagramm: "Login Screen" -> "verify credentials")
+  // 3. Login (Angepasst für E-Mail Check im ViewModel)
   Future<User?> signIn(String email, String password) async {
-    try {
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email, 
-        password: password
-      );
-      return result.user;
-    } catch (e) {
-      print("Fehler beim Login: $e");
-      return null; // Diagramm: "show error"
-    }
+    UserCredential result = await _auth.signInWithEmailAndPassword(
+      email: email, 
+      password: password
+    );
+    return result.user;
   }
 
   // 4. User-Typ prüfen (Diagramm: Entscheidung "User Typ?")
@@ -72,4 +66,13 @@ class AuthRepository {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+  
+  // Versenden der Bestätigungs-E-Mail
+  Future<void> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await user.sendEmailVerification();
+    }
+  }
+
 }
