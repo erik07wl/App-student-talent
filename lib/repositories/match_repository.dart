@@ -93,4 +93,68 @@ class MatchRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
+
+  // Alle Likes eines Employers laden
+  Future<List<Map<String, dynamic>>> getEmployerLikes(String employerId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('likes')
+          .where('employerId', isEqualTo: employerId)
+          .get();
+
+      List<Map<String, dynamic>> likedStudents = [];
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+
+        // Studentendaten nachladen für Name, Skills etc.
+        final studentDoc = await _firestore
+            .collection('students')
+            .doc(data['studentId'])
+            .get();
+
+        if (studentDoc.exists) {
+          data['studentName'] = studentDoc.data()?['name'] ?? 'Unbekannt';
+          data['studentEmail'] = studentDoc.data()?['email'] ?? '';
+          data['studentUniversity'] = studentDoc.data()?['studyProgram'] ?? '';
+          data['studentSkills'] = List<String>.from(studentDoc.data()?['skills'] ?? []);
+          data['studentDescription'] = studentDoc.data()?['description'] ?? '';
+        }
+
+        likedStudents.add(data);
+      }
+
+      // Nach Timestamp sortieren (neueste zuerst)
+      likedStudents.sort((a, b) {
+        final aTime = a['timestamp'] as Timestamp?;
+        final bTime = b['timestamp'] as Timestamp?;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+
+      return likedStudents;
+    } catch (e) {
+      print('Fehler beim Laden der Likes: $e');
+      return [];
+    }
+  }
+
+  // Like entfernen (Unlike)
+  Future<void> removeLike(String likeId) async {
+    try {
+      await _firestore.collection('likes').doc(likeId).delete();
+    } catch (e) {
+      print('Fehler beim Entfernen des Likes: $e');
+    }
+  }
+
+  // Anzahl der Likes eines Employers (für Badge)
+  Stream<int> getEmployerLikeCount(String employerId) {
+    return _firestore
+        .collection('likes')
+        .where('employerId', isEqualTo: employerId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
 }

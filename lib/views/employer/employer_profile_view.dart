@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/employer_viewmodel.dart';
 import 'employer_filter_view.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../repositories/match_repository.dart';
+import 'employer_inbox_view.dart'; // Neu
 
 class EmployerProfileView extends StatefulWidget {
   const EmployerProfileView({super.key});
@@ -15,6 +18,8 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
   final TextEditingController _companyNameController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+
+  final MatchRepository _matchRepository = MatchRepository(); // Neu
 
   @override
   void initState() {
@@ -94,31 +99,67 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[50], 
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text(
-          'TalentMatch',
-          style: TextStyle(
-            color: Colors.blue, // TalentMatch Blau
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('TalentMatch',
+            style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          TextButton(
-            onPressed: () {
-              // TODO: Profil Logik
+          // Postfach Button mit Live-Badge
+          StreamBuilder<int>(
+            stream: _matchRepository
+                .getEmployerLikeCount(FirebaseAuth.instance.currentUser?.uid ?? ''),
+            builder: (context, snapshot) {
+              final likeCount = snapshot.data ?? 0;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.favorite_border, color: Colors.black87),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const EmployerInboxView()),
+                      );
+                    },
+                  ),
+                  if (likeCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '$likeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
-            child: const Text('Profil', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
-            onPressed: () {
-              // TODO: Logout Logik
-            },
-            child: const Text('Logout', style: TextStyle(color: Colors.grey)),
-          ),
-          const SizedBox(width: 16),
+              onPressed: () {},
+              child: const Text('Profil', style: TextStyle(color: Colors.grey))),
+          TextButton(
+              onPressed: () {},
+              child: const Text('Logout', style: TextStyle(color: Colors.grey))),
+          const SizedBox(width: 8),
         ],
       ),
       body: Center(
