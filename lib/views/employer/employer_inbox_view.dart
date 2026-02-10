@@ -3,6 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../repositories/match_repository.dart';
 
+/// Postfach-Ansicht für Arbeitgeber, die alle bereits gelikten Studenten anzeigt.
+///
+/// Diese View lädt alle Likes des eingeloggten Employers aus der Firebase
+/// 'likes'-Collection und zeigt sie als scrollbare Kartenliste an.
+/// Jede Karte enthält die Studentendaten (Name, E-Mail, Skills, Beschreibung)
+/// sowie die Möglichkeit, einen Like wieder zu entfernen.
+/// Die Liste kann per Pull-to-Refresh aktualisiert werden.
 class EmployerInboxView extends StatefulWidget {
   const EmployerInboxView({super.key});
 
@@ -11,16 +18,41 @@ class EmployerInboxView extends StatefulWidget {
 }
 
 class _EmployerInboxViewState extends State<EmployerInboxView> {
+  /// Repository-Instanz für den Zugriff auf die 'likes'-Collection in Firebase.
+  /// Stellt Methoden zum Laden, Erstellen und Löschen von Likes bereit.
   final MatchRepository _matchRepository = MatchRepository();
+
+  /// Liste aller gelikten Studenten mit ihren Detaildaten.
+  /// Jeder Eintrag ist eine Map mit Feldern wie 'studentName', 'studentEmail',
+  /// 'studentSkills', 'timestamp' und der Dokument-ID ('id') des Likes.
   List<Map<String, dynamic>> _likedStudents = [];
+
+  /// Ladezustand-Flag: true während die Likes aus Firebase geladen werden.
+  /// Steuert, ob ein CircularProgressIndicator oder die Liste angezeigt wird.
   bool _isLoading = true;
 
+  /// Wird einmalig beim Erstellen des Widgets aufgerufen.
+  /// Startet sofort das asynchrone Laden der Likes aus Firebase,
+  /// damit die Daten bereitstehen, sobald die UI fertig aufgebaut ist.
   @override
   void initState() {
     super.initState();
     _loadLikes();
   }
 
+  /// Lädt alle Likes des aktuell eingeloggten Employers aus Firebase.
+  ///
+  /// Ablauf:
+  /// 1. Holt den aktuellen User via [FirebaseAuth.instance.currentUser].
+  /// 2. Ruft [MatchRepository.getEmployerLikes] auf, welche:
+  ///    - Alle Dokumente aus 'likes' filtert, wo 'employerId' == User-UID
+  ///    - Für jeden Like die zugehörigen Studentendaten aus der 'students'-
+  ///      Collection nachlädt (Name, E-Mail, Skills, Beschreibung)
+  ///    - Die Ergebnisse nach Timestamp sortiert (neueste zuerst)
+  /// 3. Prüft mit [mounted], ob das Widget noch aktiv ist.
+  /// 4. Aktualisiert [_likedStudents] und setzt [_isLoading] auf false.
+  ///
+  /// Wird auch vom [RefreshIndicator] (Pull-to-Refresh) aufgerufen.
   Future<void> _loadLikes() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -34,6 +66,19 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
     }
   }
 
+  /// Entfernt einen Like aus der Firebase-Datenbank nach Bestätigung.
+  ///
+  /// Ablauf:
+  /// 1. Zeigt einen [AlertDialog] als Sicherheitsabfrage an.
+  /// 2. Wenn der User "Entfernen" bestätigt (confirm == true):
+  ///    - Ruft [MatchRepository.removeLike] auf, welche das Like-Dokument
+  ///      mit der übergebenen [likeId] aus der 'likes'-Collection löscht.
+  ///    - Lädt die Liste via [_loadLikes] neu, damit die UI aktualisiert wird.
+  ///    - Zeigt eine orangefarbene SnackBar als Bestätigung an.
+  /// 3. Wenn der User "Abbrechen" wählt, passiert nichts.
+  ///
+  /// Parameter:
+  /// - [likeId]: Die Firestore-Dokument-ID des zu löschenden Likes.
   Future<void> _removeLike(String likeId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -68,6 +113,16 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
     }
   }
 
+  /// Baut die gesamte Inbox-UI auf.
+  ///
+  /// Drei mögliche Zustände:
+  /// 1. **Laden** ([_isLoading] == true): Zeigt einen zentrierten
+  ///    [CircularProgressIndicator] an.
+  /// 2. **Leer** ([_likedStudents] ist leer): Zeigt den Empty-State
+  ///    mit Icon und Hinweistext via [_buildEmptyState].
+  /// 3. **Daten vorhanden**: Zeigt eine scrollbare [ListView] mit
+  ///    [RefreshIndicator] (Pull-to-Refresh). Jeder Listeneintrag
+  ///    wird durch [_buildStudentCard] als Karte dargestellt.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,6 +156,12 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
     );
   }
 
+  /// Erstellt die Platzhalter-Ansicht für den Fall, dass noch keine
+  /// Studenten geliked wurden.
+  ///
+  /// Zeigt ein großes Herz-Icon, eine fettgedruckte Überschrift
+  /// "Noch keine Likes" und einen erklärenden Hilfetext, der den
+  /// User darauf hinweist, dass er das Matching starten soll.
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -123,6 +184,27 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
     );
   }
 
+  /// Erstellt eine Karte für einen gelikten Studenten mit allen relevanten Infos.
+  ///
+  /// Die Karte enthält folgende Bereiche:
+  /// - **Header**: Avatar (erster Buchstabe des Namens), vollständiger Name,
+  ///   Studiengang, Herz-Icon und relative Zeitangabe des Likes
+  /// - **E-Mail**: Wird nur angezeigt, wenn vorhanden (conditional rendering)
+  /// - **Beschreibung**: Gekürzt auf max. 3 Zeilen mit Ellipsis
+  /// - **Skills**: Als blaue Chips in einem [Wrap]-Widget dargestellt
+  /// - **Aktionen**: "Entfernen"-Button, der [_removeLike] aufruft
+  ///
+  /// Die Zeitangabe wird relativ berechnet:
+  /// - Unter 1 Minute → "Gerade eben"
+  /// - Unter 1 Stunde → "Vor X Min."
+  /// - Unter 24 Stunden → "Vor X Std."
+  /// - Unter 7 Tage → "Vor X Tagen"
+  /// - Älter → Datum im Format TT.MM.JJJJ
+  ///
+  /// Parameter:
+  /// - [studentData]: Map mit allen Studentendaten und dem Like-Timestamp.
+  ///   Erwartet die Keys: 'studentName', 'studentEmail', 'studentUniversity',
+  ///   'studentDescription', 'studentSkills', 'id', 'timestamp'.
   Widget _buildStudentCard(Map<String, dynamic> studentData) {
     final String name = studentData['studentName'] ?? 'Unbekannt';
     final String email = studentData['studentEmail'] ?? '';
@@ -132,7 +214,7 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
         List<String>.from(studentData['studentSkills'] ?? []);
     final String likeId = studentData['id'] ?? '';
 
-    // Timestamp formatieren
+    // Timestamp in eine relative Zeitangabe umrechnen (z.B. "Vor 5 Min.")
     String timeAgo = '';
     if (studentData['timestamp'] != null) {
       final Timestamp timestamp = studentData['timestamp'] as Timestamp;

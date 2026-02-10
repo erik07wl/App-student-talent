@@ -6,7 +6,21 @@ import '../../models/student_model.dart';
 import '../../repositories/student_repository.dart';
 import '../../repositories/match_repository.dart'; // Neu
 
+/// Tinder-ähnliche Swipe-Ansicht, in der der Arbeitgeber durch gefilterte
+/// Studentenprofile swipen kann.
+///
+/// Studenten werden als Kartenstapel dargestellt. Der Employer kann:
+/// - Nach **rechts** swipen oder den Herz-Button drücken → **Like**
+///   (wird in Firebase gespeichert + Student erhält Benachrichtigung)
+/// - Nach **links** swipen oder den X-Button drücken → **Dislike**
+///
+/// Erwartet ein [selectedSkills]-Set als Parameter, das die vom Employer
+/// in der [EmployerFilterView] gewählten Fähigkeiten enthält.
+/// Nur Studenten mit mindestens einem passenden Skill werden angezeigt.
 class EmployerSwipeView extends StatefulWidget {
+  /// Die vom Employer ausgewählten Filter-Skills aus der [EmployerFilterView].
+  /// Wird verwendet, um passende Studenten zu laden und deren übereinstimmende
+  /// Skills in der Karte grün hervorzuheben.
   final Set<String> selectedSkills;
 
   const EmployerSwipeView({super.key, required this.selectedSkills});
@@ -16,24 +30,55 @@ class EmployerSwipeView extends StatefulWidget {
 }
 
 class _EmployerSwipeViewState extends State<EmployerSwipeView> {
+  /// Controller für das CardSwiper-Widget. Ermöglicht das programmatische
+  /// Auslösen von Swipes über die Like-/Dislike-Buttons.
   final CardSwiperController _cardController = CardSwiperController();
+
+  /// Repository für den Zugriff auf die Studenten-Collection in Firebase.
+  /// Wird verwendet, um Studenten basierend auf Skills zu filtern.
   final StudentRepository _studentRepository = StudentRepository();
-  final MatchRepository _matchRepository = MatchRepository(); // Neu
 
+  /// Repository für den Zugriff auf die 'likes'- und 'notifications'-Collections.
+  /// Speichert Likes und erstellt Benachrichtigungen für Studenten.
+  final MatchRepository _matchRepository = MatchRepository();
+
+  /// Liste der gefilterten Studenten, die als Karten angezeigt werden.
+  /// Wird beim Laden der Seite mit passenden Studenten aus Firebase befüllt.
   List<StudentModel> _students = [];
-  bool _isLoading = true;
-  String _employerName = ''; // Firmenname für die Benachrichtigung
 
+  /// Ladezustand: true solange Studenten UND Firmenname geladen werden.
+  /// Beide Ladevorgänge müssen abgeschlossen sein, bevor geswiped werden kann.
+  bool _isLoading = true;
+
+  /// Name des Unternehmens, der in der Benachrichtigung an den Studenten
+  /// angezeigt wird (z.B. "Parloa GmbH ist an deinem Profil interessiert!").
+  String _employerName = '';
+
+  /// Lokale Liste aller in dieser Sitzung gelikten Studenten.
+  /// Wird für den Like-Counter in der AppBar verwendet.
   final List<StudentModel> _likedStudents = [];
+
+  /// Lokale Liste aller in dieser Sitzung abgelehnten Studenten.
+  /// Wird aktuell nur lokal gespeichert (nicht in Firebase).
   final List<StudentModel> _dislikedStudents = [];
 
+  /// Wird einmalig beim Erstellen des Widgets aufgerufen.
+  /// Startet den kombinierten Ladevorgang via [_loadData].
   @override
   void initState() {
     super.initState();
     _loadData();
   }
 
-  // Beide Ladevorgänge zusammen – _isLoading bleibt true bis BEIDES fertig ist
+  /// Koordiniert das parallele Laden von Studenten und Firmennamen.
+  ///
+  /// Verwendet [Future.wait], um beide asynchronen Ladevorgänge gleichzeitig
+  /// zu starten. Das ist effizienter als sequentielles Laden, da beide
+  /// Firebase-Abfragen unabhängig voneinander sind.
+  ///
+  /// [_isLoading] bleibt true, bis BEIDE Vorgänge abgeschlossen sind.
+  /// Dadurch wird verhindert, dass der User swiped, bevor der Firmenname
+  /// geladen ist (was sonst zu leeren Absendernamen in Benachrichtigungen führt).
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
@@ -51,6 +96,18 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     }
   }
 
+  /// Lädt den Firmennamen des eingeloggten Employers aus der
+  /// 'employers'-Collection in Firebase.
+  ///
+  /// Ablauf:
+  /// 1. Holt den aktuellen User via [FirebaseAuth].
+  /// 2. Liest das Employer-Dokument mit der UID als Dokument-ID.
+  /// 3. Extrahiert das Feld 'companyName' und speichert es in [_employerName].
+  /// 4. Falls kein Dokument existiert, bleibt [_employerName] leer und
+  ///    eine Debug-Meldung wird ausgegeben.
+  ///
+  /// Der Firmenname wird benötigt, um in der Benachrichtigung an den
+  /// Studenten den korrekten Absender anzuzeigen.
   Future<void> _loadEmployerName() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -68,18 +125,43 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     }
   }
 
+  /// Lädt alle Studenten aus Firebase, die mindestens einen der gewählten
+  /// Skills besitzen.
+  ///
+  /// Ruft [StudentRepository.getStudentsBySkills] auf, welche:
+  /// 1. Alle Dokumente aus der 'students'-Collection abruft.
+  /// 2. Für jeden Studenten prüft, ob mindestens ein Skill aus
+  ///    [widget.selectedSkills] in seiner Skills-Liste enthalten ist.
+  /// 3. Nur passende Studenten als [StudentModel]-Liste zurückgibt.
+  ///
+  /// Das Ergebnis wird in [_students] gespeichert und bestimmt die
+  /// Anzahl der Karten im Swipe-Stapel.
   Future<void> _loadStudents() async {
     final students =
         await _studentRepository.getStudentsBySkills(widget.selectedSkills);
     _students = students;
   }
 
+  /// Gibt den [CardSwiperController] frei, wenn das Widget aus dem
+  /// Widget-Tree entfernt wird. Verhindert Speicherlecks, da der
+  /// Controller interne Listener und Animationen verwaltet.
   @override
   void dispose() {
     _cardController.dispose();
     super.dispose();
   }
 
+  /// Baut die gesamte Swipe-UI auf.
+  ///
+  /// Drei mögliche Zustände:
+  /// 1. **Laden** ([_isLoading] == true): Zeigt einen [CircularProgressIndicator].
+  /// 2. **Keine Ergebnisse** ([_students] ist leer): Zeigt [_buildEmptyState]
+  ///    mit Hinweis, andere Filter zu wählen.
+  /// 3. **Karten vorhanden**: Zeigt [_buildSwipeArea] mit dem Kartenstapel,
+  ///    Like-/Dislike-Buttons und einem Like-Counter in der AppBar.
+  ///
+  /// Die AppBar enthält einen Zurück-Button und einen grünen Badge mit
+  /// der Anzahl der in dieser Sitzung gelikten Studenten.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,6 +212,11 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     );
   }
 
+  /// Erstellt die Platzhalter-Ansicht, wenn keine passenden Studenten gefunden wurden.
+  ///
+  /// Zeigt ein Such-Icon, eine erklärende Überschrift, einen Hilfetext
+  /// und einen Button "Zurück zu Filtern", der via [Navigator.pop] zur
+  /// [EmployerFilterView] zurückkehrt, damit der Employer andere Skills wählen kann.
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -167,6 +254,18 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     );
   }
 
+  /// Baut den Hauptbereich mit dem Kartenstapel und den Swipe-Buttons auf.
+  ///
+  /// Besteht aus drei Bereichen:
+  /// 1. **Info-Text** oben: Zeigt die Anzahl der gefundenen Kandidaten.
+  /// 2. **CardSwiper** (Mitte): Das Herzstück – ein stapelbarer Kartenswiper
+  ///    aus dem Paket 'flutter_card_swiper'. Zeigt bis zu 3 Karten gleichzeitig
+  ///    (gestaffelt mit 40px Versatz). Jede Karte wird von [_buildStudentCard]
+  ///    erstellt. Swipe-Events werden von [_onSwipe] verarbeitet, das Ende
+  ///    des Stapels von [_onEnd].
+  /// 3. **Buttons** unten: Zwei [FloatingActionButton]s für manuelles
+  ///    Like (Herz, grün) und Dislike (X, rot). Lösen programmatische
+  ///    Swipes via [_cardController.swipe] aus.
   Widget _buildSwipeArea() {
     return Column(
       children: [
@@ -224,6 +323,20 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     );
   }
 
+  /// Erstellt eine einzelne Studentenkarte für den Swipe-Stapel.
+  ///
+  /// Die Karte enthält folgende Bereiche:
+  /// - **Header**: Avatar (erster Buchstabe des Namens in blauem Kreis),
+  ///   vollständiger Name und Studiengang.
+  /// - **Über mich**: Beschreibungstext des Studenten in einem scrollbaren
+  ///   Container (falls der Text zu lang ist).
+  /// - **Skills**: Alle Fähigkeiten als Chips in einem [Wrap]-Widget.
+  ///   Skills, die mit den Filterkriterien übereinstimmen, werden grün
+  ///   hervorgehoben (mit Rahmen). Nicht-passende Skills sind blau.
+  /// - **Hinweis**: Kurzer Text am unteren Rand, der die Swipe-Richtungen erklärt.
+  ///
+  /// Parameter:
+  /// - [student]: Das [StudentModel] mit allen Profildaten des Studenten.
   Widget _buildStudentCard(StudentModel student) {
     return Container(
       decoration: BoxDecoration(
@@ -353,14 +466,33 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     );
   }
 
-  // ANGEPASST: Like wird jetzt in Firebase gespeichert
+  /// Callback-Methode, die bei jedem Swipe vom [CardSwiper] aufgerufen wird.
+  ///
+  /// Parameter (vom CardSwiper bereitgestellt):
+  /// - [previousIndex]: Index der gerade gewischten Karte in [_students].
+  /// - [currentIndex]: Index der nächsten Karte (null wenn keine mehr übrig).
+  /// - [direction]: Swipe-Richtung (left = Dislike, right = Like).
+  ///
+  /// Ablauf bei **Rechts-Swipe (Like)**:
+  /// 1. Fügt den Studenten zur lokalen [_likedStudents]-Liste hinzu.
+  /// 2. Ruft [MatchRepository.saveLike] auf, welche:
+  ///    - Ein Dokument in der 'likes'-Collection erstellt.
+  ///    - Ein Dokument in der 'notifications'-Collection erstellt, damit
+  ///      der Student die Benachrichtigung in seinem Postfach sieht.
+  /// 3. Zeigt eine grüne SnackBar als visuelles Feedback.
+  ///
+  /// Ablauf bei **Links-Swipe (Dislike)**:
+  /// - Fügt den Studenten zur lokalen [_dislikedStudents]-Liste hinzu.
+  ///   (Wird aktuell nicht in Firebase gespeichert.)
+  ///
+  /// Gibt immer `true` zurück, um dem CardSwiper zu signalisieren,
+  /// dass der Swipe akzeptiert wurde. [setState] aktualisiert den Like-Counter.
   bool _onSwipe(
       int previousIndex, int? currentIndex, CardSwiperDirection direction) {
     final student = _students[previousIndex];
     final user = FirebaseAuth.instance.currentUser;
 
     if (direction == CardSwiperDirection.right && user != null) {
-      // LIKE -> In Firebase speichern + Benachrichtigung erstellen
       _likedStudents.add(student);
 
       _matchRepository.saveLike(
@@ -384,6 +516,16 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     return true;
   }
 
+  /// Callback-Methode, die aufgerufen wird, wenn alle Karten durchgeswiped wurden.
+  ///
+  /// Zeigt einen [AlertDialog] mit einer Zusammenfassung:
+  /// - Anzahl der gelikten Studenten aus [_likedStudents.length].
+  /// - Hinweis, dass die Studenten per Benachrichtigung informiert wurden.
+  ///
+  /// Der "Zurück zum Profil"-Button schließt zuerst den Dialog
+  /// ([Navigator.pop] #1) und navigiert dann zurück zur vorherigen Seite
+  /// ([Navigator.pop] #2), was in der Regel die [EmployerFilterView] oder
+  /// die [EmployerProfileView] ist.
   void _onEnd() {
     showDialog(
       context: context,

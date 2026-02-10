@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../repositories/student_repository.dart';
 import 'employer_swipe_view.dart'; // Import hinzufügen
 
+/// Die Filter-Ansicht ermöglicht es dem Arbeitgeber, Studenten nach
+/// bestimmten Fähigkeiten (Skills) zu filtern, bevor das Matching gestartet wird.
+/// Die verfügbaren Skills werden dynamisch aus der Firebase-Datenbank geladen
+/// und als auswählbare FilterChips dargestellt.
 class EmployerFilterView extends StatefulWidget {
   const EmployerFilterView({super.key});
 
@@ -10,22 +14,45 @@ class EmployerFilterView extends StatefulWidget {
 }
 
 class _EmployerFilterViewState extends State<EmployerFilterView> {
-  // Keine Mock-Daten mehr, sondern leere Liste initialisieren
+  /// Liste aller verfügbaren Skills, die aus den Studentenprofilen in Firebase
+  /// geladen werden. Wird initial als leere Liste initialisiert und beim
+  /// Laden der Seite mit den echten Daten befüllt.
   List<String> _availableSkills = [];
+
+  /// Ladezustand-Flag: true während die Skills aus Firebase geladen werden,
+  /// false sobald die Daten verfügbar sind. Steuert die Anzeige des
+  /// CircularProgressIndicator vs. der FilterChips.
   bool _isLoading = true;
 
-  // Set speichert die ausgewählten Skills
+  /// Set der vom Arbeitgeber ausgewählten Skills. Ein Set wird verwendet,
+  /// um Duplikate automatisch zu verhindern. Diese Auswahl wird an die
+  /// EmployerSwipeView weitergegeben, um nur passende Studenten anzuzeigen.
   final Set<String> _selectedSkills = {};
 
+  /// Repository-Instanz für den Zugriff auf die Studenten-Collection
+  /// in Firebase Firestore. Wird genutzt, um alle einzigartigen Skills
+  /// aller registrierten Studenten abzurufen.
   final StudentRepository _studentRepository = StudentRepository();
 
+  /// Wird einmalig aufgerufen, wenn das Widget zum ersten Mal erstellt wird.
+  /// Startet sofort den asynchronen Ladevorgang der Skills aus Firebase,
+  /// damit die Daten bereitstehen, sobald die UI aufgebaut ist.
   @override
   void initState() {
     super.initState();
     _loadRealSkills();
   }
 
-  // Lädt die Skills aus der Datenbank
+  /// Lädt alle einzigartigen Skills aus der Firebase-Datenbank.
+  ///
+  /// Ablauf:
+  /// 1. Ruft [StudentRepository.getAllStudentSkills] auf, welche alle
+  ///    Studenten-Dokumente durchsucht und ein Set aller Skills sammelt.
+  /// 2. Prüft mit [mounted], ob das Widget noch im Widget-Tree ist
+  ///    (wichtig bei async Operationen, um Fehler zu vermeiden).
+  /// 3. Aktualisiert den State: befüllt [_availableSkills] mit den
+  ///    geladenen Skills und setzt [_isLoading] auf false, wodurch
+  ///    die FilterChips angezeigt werden.
   Future<void> _loadRealSkills() async {
     final skills = await _studentRepository.getAllStudentSkills();
     
@@ -37,6 +64,18 @@ class _EmployerFilterViewState extends State<EmployerFilterView> {
     }
   }
 
+  /// Baut die gesamte Filter-UI auf.
+  ///
+  /// Struktur:
+  /// - AppBar mit Zurück-Button und "TalentMatch"-Titel
+  /// - Zentrierte, breitenbeschränkte Karte (max. 600px) mit:
+  ///   - Überschrift und Beschreibung
+  ///   - Ladeindikator ODER FilterChips (je nach [_isLoading])
+  ///   - Zwei Buttons: "Zurück zum Profil" und "Matching starten"
+  ///
+  /// Die FilterChips werden dynamisch aus [_availableSkills] generiert.
+  /// Bei Auswahl/Abwahl eines Chips wird [_selectedSkills] aktualisiert
+  /// und die UI per [setState] neu gezeichnet (Chip-Farbe ändert sich).
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -205,6 +244,12 @@ class _EmployerFilterViewState extends State<EmployerFilterView> {
     );
   }
 
+  /// Erstellt ein einheitlich gestyltes Label-Widget für Formularfelder.
+  ///
+  /// Nimmt einen [text]-String entgegen und gibt ein [Text]-Widget zurück
+  /// mit fetter Schrift, dunkelgrauer Farbe (#374151) und Schriftgröße 14.
+  /// Wird verwendet, um Abschnittsüberschriften wie "Verfügbare Fähigkeiten"
+  /// konsistent darzustellen.
   Widget _buildLabel(String text) {
     return Text(
       text,

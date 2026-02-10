@@ -6,6 +6,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../repositories/match_repository.dart';
 import 'employer_inbox_view.dart'; // Neu
 
+/// Profilansicht für Arbeitgeber zum Bearbeiten und Speichern der Unternehmensdaten.
+///
+/// Diese View zeigt ein Formular mit den Feldern Firmenname, Standort und
+/// Beschreibung an. Die Daten werden beim Laden der Seite aus Firebase
+/// abgerufen und in die Textfelder eingefügt. Änderungen können über den
+/// "Änderungen speichern"-Button zurück in Firebase geschrieben werden.
+/// Zusätzlich enthält die AppBar ein Postfach-Icon mit Live-Badge,
+/// das die Anzahl der gelikten Studenten anzeigt.
 class EmployerProfileView extends StatefulWidget {
   const EmployerProfileView({super.key});
 
@@ -14,30 +22,54 @@ class EmployerProfileView extends StatefulWidget {
 }
 
 class _EmployerProfileViewState extends State<EmployerProfileView> {
-  // Controller initial leer lassen (oder Lade-Text anzeigen)
+  /// Controller für das Firmenname-Textfeld. Wird beim Laden der Seite
+  /// mit dem aktuellen Firmennamen aus Firebase befüllt.
   final TextEditingController _companyNameController = TextEditingController();
+
+  /// Controller für das Standort-Textfeld. Wird beim Laden der Seite
+  /// mit dem aktuellen Standort aus Firebase befüllt.
   final TextEditingController _locationController = TextEditingController();
+
+  /// Controller für das Beschreibung-Textfeld (mehrzeilig). Wird beim Laden
+  /// der Seite mit der aktuellen Beschreibung aus Firebase befüllt.
   final TextEditingController _descriptionController = TextEditingController();
 
-  final MatchRepository _matchRepository = MatchRepository(); // Neu
+  /// Repository-Instanz für den Zugriff auf die 'likes'-Collection.
+  /// Wird verwendet, um die Anzahl der Likes als Live-Badge in der
+  /// AppBar anzuzeigen (via StreamBuilder).
+  final MatchRepository _matchRepository = MatchRepository();
 
+  /// Wird einmalig beim Erstellen des Widgets aufgerufen.
+  ///
+  /// Verwendet [WidgetsBinding.instance.addPostFrameCallback], um das Laden
+  /// der Daten erst zu starten, nachdem der erste Frame gerendert wurde.
+  /// Das ist notwendig, weil [Provider.of] im initState noch nicht sicher
+  /// aufgerufen werden kann – der Widget-Tree ist zu diesem Zeitpunkt
+  /// noch nicht vollständig aufgebaut.
   @override
   void initState() {
     super.initState();
-    // Daten laden, sobald das Widget gebaut wurde
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserData();
     });
   }
 
-  // Hilfsmethode zum Laden und Befüllen der Felder
+  /// Lädt die aktuellen Unternehmensdaten des eingeloggten Employers aus Firebase
+  /// und befüllt die Textfelder damit.
+  ///
+  /// Ablauf:
+  /// 1. Holt das [EmployerViewModel] via Provider (mit listen: false, da wir
+  ///    hier nur einmalig lesen und nicht auf Änderungen reagieren müssen).
+  /// 2. Ruft [EmployerViewModel.loadCurrentEmployer] auf, welche das
+  ///    Employer-Dokument aus der 'employers'-Collection via [EmployerRepository] lädt.
+  /// 3. Wenn Daten vorhanden sind ([currentEmployer] != null), werden die
+  ///    Controller-Texte per [setState] aktualisiert, sodass die Textfelder
+  ///    die gespeicherten Werte anzeigen.
   Future<void> _loadUserData() async {
     final employerVM = Provider.of<EmployerViewModel>(context, listen: false);
     
-    // 1. Daten aus Firebase laden
     await employerVM.loadCurrentEmployer();
 
-    // 2. Felder befüllen, wenn Daten vorhanden sind
     if (employerVM.currentEmployer != null) {
       setState(() {
         _companyNameController.text = employerVM.currentEmployer!.companyName;
@@ -47,6 +79,12 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
     }
   }
 
+  /// Gibt die TextEditingController frei, wenn das Widget aus dem
+  /// Widget-Tree entfernt wird.
+  ///
+  /// Das ist wichtig, um Speicherlecks zu vermeiden: Jeder Controller
+  /// hält interne Listener und Ressourcen, die ohne [dispose] nicht
+  /// freigegeben werden und im Hintergrund weiterlaufen würden.
   @override
   void dispose() {
     _companyNameController.dispose();
@@ -55,12 +93,21 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
     super.dispose();
   }
 
-  // Echte Speicher-Funktion via ViewModel
+  /// Speichert die aktuellen Textfeld-Werte als Unternehmensdaten in Firebase.
+  ///
+  /// Ablauf:
+  /// 1. Holt das [EmployerViewModel] via Provider.
+  /// 2. Ruft [EmployerViewModel.saveProfile] auf mit den getrimmten Werten
+  ///    aus allen drei Controllern. Trimmen entfernt Leerzeichen am Anfang/Ende.
+  /// 3. Das ViewModel erstellt ein [EmployerModel] mit der UID des aktuellen
+  ///    Users und schreibt es via [EmployerRepository] in Firestore
+  ///    (mit merge: true, damit nur geänderte Felder überschrieben werden).
+  /// 4. Prüft mit [mounted], ob das Widget noch aktiv ist (wichtig, da
+  ///    zwischen await und SnackBar die Seite geschlossen worden sein könnte).
+  /// 5. Zeigt eine grüne SnackBar bei Erfolg oder eine rote bei Fehler.
   Future<void> _saveProfile() async {
-    // Zugriff auf ViewModel
     final employerVM = Provider.of<EmployerViewModel>(context, listen: false);
 
-    // Daten speichern
     final success = await employerVM.saveProfile(
       companyName: _companyNameController.text.trim(),
       location: _locationController.text.trim(),
@@ -69,7 +116,6 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
 
     if (!mounted) return;
 
-    // Feedback geben
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -87,11 +133,24 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
     }
   }
 
+  /// Baut die gesamte Profil-UI auf.
+  ///
+  /// Ablauf:
+  /// 1. Holt das [EmployerViewModel] via Provider (mit listen: true, damit
+  ///    die UI bei State-Änderungen wie isLoading automatisch neu baut).
+  /// 2. Zeigt einen Ladekreis, solange Daten geladen werden UND noch keine
+  ///    Employer-Daten gecacht sind.
+  /// 3. Baut ansonsten das Scaffold mit:
+  ///    - **AppBar**: TalentMatch-Titel, Postfach-Button mit Live-Badge
+  ///      (via StreamBuilder auf [MatchRepository.getEmployerLikeCount]),
+  ///      Profil- und Logout-Buttons.
+  ///    - **Body**: Zentrierte, breitenbeschränkte Karte (max. 600px) mit
+  ///      Überschrift, Erfolgsmeldung, drei Formularfeldern und drei Buttons
+  ///      (Abbrechen, Matching starten, Änderungen speichern).
   @override
   Widget build(BuildContext context) {
     final employerVM = Provider.of<EmployerViewModel>(context);
 
-    // Lade-Indikator anzeigen, während Daten geholt werden
     if (employerVM.isLoading && employerVM.currentEmployer == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -304,19 +363,38 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
     );
   }
 
-  // Hilfsmethode für Labels
+  /// Erstellt ein einheitlich gestyltes Label-Widget für Formularfelder.
+  ///
+  /// Wird über jedem Textfeld als Überschrift verwendet (z.B. "Firmenname",
+  /// "Standort", "Beschreibung"). Styling: fette Schrift, dunkelgrauer
+  /// Farbton (#374151), Schriftgröße 14.
+  ///
+  /// Parameter:
+  /// - [text]: Der anzuzeigende Label-Text.
   Widget _buildLabel(String text) {
     return Text(
       text,
       style: const TextStyle(
         fontWeight: FontWeight.bold,
-        color: Color(0xFF374151), // Dunkles Grau
+        color: Color(0xFF374151),
         fontSize: 14,
       ),
     );
   }
 
-  // Hilfsmethode für Input Felder
+  /// Erstellt ein einheitlich gestyltes Textfeld mit abgerundeten Ecken.
+  ///
+  /// Das Textfeld hat drei verschiedene Border-Zustände:
+  /// - **Normal** (enabledBorder): Hellgrauer Rand (#D1D5DB)
+  /// - **Fokussiert** (focusedBorder): Blauer Rand für visuelle Rückmeldung
+  /// - **Standard** (border): Fallback-Rand (#E5E7EB)
+  ///
+  /// Parameter:
+  /// - [controller]: Der [TextEditingController], der den Text verwaltet.
+  ///   Wird sowohl zum Lesen (beim Speichern) als auch zum Schreiben
+  ///   (beim Laden aus Firebase) verwendet.
+  /// - [maxLines]: Anzahl der sichtbaren Zeilen. Standard ist 1 (einzeilig),
+  ///   für die Beschreibung wird 5 übergeben (mehrzeilig).
   Widget _buildTextField(TextEditingController controller,
       {int maxLines = 1}) {
     return TextField(
@@ -325,16 +403,15 @@ class _EmployerProfileViewState extends State<EmployerProfileView> {
       decoration: InputDecoration(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6.0),
-          borderSide:
-              const BorderSide(color: Color(0xFFE5E7EB)), // Helles Grau
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6.0),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)), // Grau
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6.0),
-          borderSide: const BorderSide(color: Colors.blue), // Blau bei Fokus
+          borderSide: const BorderSide(color: Colors.blue),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
