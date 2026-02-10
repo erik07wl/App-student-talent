@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/student_model.dart';
 import '../../repositories/student_repository.dart';
+import '../../repositories/match_repository.dart'; // Neu
 
 class EmployerSwipeView extends StatefulWidget {
   final Set<String> selectedSkills;
@@ -15,30 +18,60 @@ class EmployerSwipeView extends StatefulWidget {
 class _EmployerSwipeViewState extends State<EmployerSwipeView> {
   final CardSwiperController _cardController = CardSwiperController();
   final StudentRepository _studentRepository = StudentRepository();
+  final MatchRepository _matchRepository = MatchRepository(); // Neu
 
   List<StudentModel> _students = [];
   bool _isLoading = true;
+  String _employerName = ''; // Firmenname für die Benachrichtigung
 
-  // Listen für Likes und Dislikes
   final List<StudentModel> _likedStudents = [];
   final List<StudentModel> _dislikedStudents = [];
 
   @override
   void initState() {
     super.initState();
-    _loadStudents();
+    _loadData();
+  }
+
+  // Beide Ladevorgänge zusammen – _isLoading bleibt true bis BEIDES fertig ist
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.wait([
+      _loadStudents(),
+      _loadEmployerName(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadEmployerName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final employerDoc = await FirebaseFirestore.instance
+          .collection('employers')
+          .doc(user.uid)
+          .get();
+
+      if (employerDoc.exists) {
+        _employerName = employerDoc.data()?['companyName'] ?? 'Unbekanntes Unternehmen';
+        print("DEBUG: Firmenname geladen: $_employerName");
+      } else {
+        print("DEBUG: Kein Dokument in 'employers' für UID: ${user.uid}");
+      }
+    }
   }
 
   Future<void> _loadStudents() async {
     final students =
         await _studentRepository.getStudentsBySkills(widget.selectedSkills);
-
-    if (mounted) {
-      setState(() {
-        _students = students;
-        _isLoading = false;
-      });
-    }
+    _students = students;
   }
 
   @override
@@ -63,7 +96,6 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Badge mit Anzahl der Likes
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
@@ -139,8 +171,6 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     return Column(
       children: [
         const SizedBox(height: 16),
-
-        // Filter-Info
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
@@ -148,32 +178,28 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ),
-
         const SizedBox(height: 16),
-
-        // Swipe Cards
         Expanded(
           child: CardSwiper(
             controller: _cardController,
             cardsCount: _students.length,
-            numberOfCardsDisplayed: _students.length >= 3 ? 3 : _students.length,
+            numberOfCardsDisplayed:
+                _students.length >= 3 ? 3 : _students.length,
             backCardOffset: const Offset(0, 40),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             onSwipe: _onSwipe,
             onEnd: _onEnd,
-            cardBuilder: (context, index, percentThresholdX, percentThresholdY) {
+            cardBuilder:
+                (context, index, percentThresholdX, percentThresholdY) {
               return _buildStudentCard(_students[index]);
             },
           ),
         ),
-
-        // Swipe Buttons
         Padding(
           padding: const EdgeInsets.all(24.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Dislike Button
               FloatingActionButton(
                 heroTag: 'dislike',
                 onPressed: () =>
@@ -182,8 +208,6 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
                 elevation: 4,
                 child: const Icon(Icons.close, color: Colors.red, size: 32),
               ),
-
-              // Like Button
               FloatingActionButton(
                 heroTag: 'like',
                 onPressed: () =>
@@ -219,7 +243,6 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Avatar und Name
             Row(
               children: [
                 CircleAvatar(
@@ -256,12 +279,9 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
                 ),
               ],
             ),
-
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
-
-            // Beschreibung
             const Text(
               'Über mich',
               style: TextStyle(
@@ -280,10 +300,7 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Skills
             const Text(
               'Skills',
               style: TextStyle(
@@ -296,7 +313,6 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
               spacing: 8,
               runSpacing: 8,
               children: student.skills.map((skill) {
-                // Highlight wenn Skill in den Filterkriterien war
                 final isMatchingSkill = widget.selectedSkills.contains(skill);
                 return Container(
                   padding:
@@ -313,7 +329,9 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
                   child: Text(
                     skill,
                     style: TextStyle(
-                      color: isMatchingSkill ? Colors.green[800] : Colors.blue[800],
+                      color: isMatchingSkill
+                          ? Colors.green[800]
+                          : Colors.blue[800],
                       fontWeight:
                           isMatchingSkill ? FontWeight.bold : FontWeight.normal,
                     ),
@@ -321,13 +339,10 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
                 );
               }).toList(),
             ),
-
             const SizedBox(height: 16),
-
-            // Swipe Hinweis
             Center(
               child: Text(
-                '← Swipe links zum Ablehnen | Swipe rechts zum Liken →',
+                '← Ablehnen | Liken →',
                 style: TextStyle(fontSize: 12, color: Colors.grey[400]),
                 textAlign: TextAlign.center,
               ),
@@ -338,17 +353,21 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
     );
   }
 
+  // ANGEPASST: Like wird jetzt in Firebase gespeichert
   bool _onSwipe(
       int previousIndex, int? currentIndex, CardSwiperDirection direction) {
     final student = _students[previousIndex];
+    final user = FirebaseAuth.instance.currentUser;
 
-    if (direction == CardSwiperDirection.right) {
-      // LIKE
+    if (direction == CardSwiperDirection.right && user != null) {
+      // LIKE -> In Firebase speichern + Benachrichtigung erstellen
       _likedStudents.add(student);
-      print('LIKED: ${student.name}');
 
-      // Hier könnte man den Like in Firebase speichern
-      // z.B. await _matchRepository.saveLike(employerId, student.id);
+      _matchRepository.saveLike(
+        employerId: user.uid,
+        studentId: student.id,
+        employerName: _employerName,
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -358,35 +377,27 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
         ),
       );
     } else if (direction == CardSwiperDirection.left) {
-      // DISLIKE
       _dislikedStudents.add(student);
-      print('DISLIKED: ${student.name}');
     }
 
-    setState(() {}); // UI aktualisieren (Like-Counter)
+    setState(() {});
     return true;
   }
 
   void _onEnd() {
-    // Alle Karten wurden durchgeswiped
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Fertig!'),
         content: Text(
-            'Du hast ${_likedStudents.length} Studenten geliked.\n\nMöchtest du deine Matches sehen?'),
+            'Du hast ${_likedStudents.length} Studenten geliked.\n\nDie Studenten wurden benachrichtigt.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Schließen'),
-          ),
-          ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Dialog schließen
-              // TODO: Zur Matches-Übersicht navigieren
-              Navigator.pop(context); // Zurück zum Profil
+              Navigator.pop(context); // Dialog
+              Navigator.pop(context); // Zurück
             },
-            child: const Text('Matches ansehen'),
+            child: const Text('Zurück zum Profil'),
           ),
         ],
       ),
