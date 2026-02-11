@@ -8,23 +8,25 @@ class RegisterView extends StatefulWidget {
   const RegisterView({super.key, required this.userType});
 
   @override
-  State<RegisterView> createState() => _RegisterViewState();
+  State<RegisterView> createState() => _RegisterViewState(); //erstellt das State-Objekt, das den veränderbaren Zustand enthält
 }
 
-class _RegisterViewState extends State<RegisterView> {
-  final _nameController = TextEditingController();
+class _RegisterViewState extends State<RegisterView> { //_RegisterViewState-StateKlasse, RegisterView-Widget
+  final _nameController = TextEditingController(); // auszulesen, Eingabe reagieren
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _extraController = TextEditingController(); // Für Uni ODER Unternehmensname
 
   @override
   Widget build(BuildContext context) {
-    final authVM = Provider.of<AuthViewModel>(context);
+    final authVM = Provider.of<AuthViewModel>(context); //AuthViewModel über Provider aus dem Widget-Baum
     
     // Dynamische Texte basierend auf dem User-Typ
-    final isStudent = widget.userType == 'student';
-    final String extraLabel = isStudent ? "Aktuelle Universität" : "Unternehmensname";
+    final isStudent = widget.userType == 'student'; //Ist userType gleich 'student'?
+    final String extraLabel = isStudent ? "Aktuelle Universität" : "Unternehmensname"; // anhand userTyp, wird entschieden
     final String extraHint = isStudent ? "z.B. TU Berlin" : "z.B. TechCorp GmbH";
+    
+  
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -35,9 +37,10 @@ class _RegisterViewState extends State<RegisterView> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
+
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 30),
+      body: SingleChildScrollView( //wichtig, damit bei kleinerem Screen / Tastatur nichts „overflow“ macht.
+        padding: const EdgeInsets.symmetric(horizontal: 30), // schafft abstand 
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -46,6 +49,7 @@ class _RegisterViewState extends State<RegisterView> {
               isStudent ? "Studenten-Konto" : "Arbeitgeber-Konto",
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
+
             const SizedBox(height: 10),
             const Text(
               "Trage deine Daten ein, um loszulegen.",
@@ -81,16 +85,16 @@ class _RegisterViewState extends State<RegisterView> {
                   elevation: 0,
                 ),
 
-                // ANPASSUNG HIER: async hinzufügen
+                // Wenn isLoading == true → onPressed
                 onPressed: authVM.isLoading ? null : () async {
-                  await authVM.register(
+                  await authVM.register( //Methode register() im AuthViewModel aufgerufen
                     _emailController.text,
-                    _passwordController.text,
+                    _passwordController.text, //Übergabe
                     _nameController.text,
                     widget.userType,
                   );
                   // Prüfen, ob die Registrierung erfolgreich war
-                  if (authVM.errorMessage == null && mounted) {
+                  if (authVM.errorMessage == null && mounted) { //mounted boolescher Wert true-aktiv
                     // Kurzes Feedback für den Nutzer
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

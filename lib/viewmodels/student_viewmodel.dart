@@ -22,9 +22,10 @@ class StudentViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final User? currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        _currentStudent = await _repository.getStudentData(currentUser.uid);
+      final User? currentUser = _auth.currentUser;  //aktuellen User 
+      if (currentUser != null) { //Falls User existiert
+        _currentStudent = await _repository.getStudentData(currentUser.uid); // wird an Repository übergeben,Repository liest Firestore-Dokument
+
       }
     } catch (e) {
       _errorMessage = "Fehler beim Laden: $e";
@@ -40,7 +41,9 @@ class StudentViewModel extends ChangeNotifier {
     required String university,
     required String description,
     required List<String> skills,
-  }) async {
+
+  })
+   async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -52,15 +55,15 @@ class StudentViewModel extends ChangeNotifier {
       }
 
       final student = StudentModel(
-        id: currentUser.uid,
-        email: currentUser.email ?? '',
+        id: currentUser.uid, //kommt aus FirebaseAuth
+        email: currentUser.email ?? '', //kommt aus FirebaseAuth
         name: name,
         university: university,
         description: description,
         skills: skills,
       );
 
-      await _repository.saveStudentData(student);
+      await _repository.saveStudentData(student); //Repository schreibt in DB
       
       // Cache aktualisieren
       _currentStudent = student;
