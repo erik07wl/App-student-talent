@@ -19,7 +19,7 @@ class _LoginViewState extends State<LoginView> {
 
   @override
   Widget build(BuildContext context) {
-    final authVM = Provider.of<AuthViewModel>(context);
+    final authVM = Provider.of<AuthViewModel>(context); //AuthViewModel über Provider aus dem Widget-Baum
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -78,10 +78,11 @@ class _LoginViewState extends State<LoginView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
-                onPressed: authVM.isLoading
-                    ? null
-                    : () async {
-                        // 1. Login-Methode aufrufen
+                onPressed: authVM.isLoading ? null  : () async { 
+                  //isLoading == true → Button deaktiviert, schutz vor mehrfach Klicken
+
+                   
+                        // 1. Login-Methode aufrufen, Ruft die Login-Methode im ViewModel auf
                         await authVM.login(
                             _emailController.text, _passwordController.text);
 
@@ -90,7 +91,7 @@ class _LoginViewState extends State<LoginView> {
 
                         // 3. Wenn Login erfolgreich, userType prüfen
                         if (authVM.errorMessage == null) {
-                          final user = FirebaseAuth.instance.currentUser;
+                          final user = FirebaseAuth.instance.currentUser; // holt den User
 
                           if (user != null) {
                             try {
@@ -100,7 +101,7 @@ class _LoginViewState extends State<LoginView> {
                                   .doc(user.uid)
                                   .get();
 
-                              if (!context.mounted) return;
+                              if (!context.mounted) return; //Widget nicht mehr im Widget-Baum ist, dann stoppe hier
 
                               if (userDoc.exists) {
                                 // userType auslesen

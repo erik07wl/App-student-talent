@@ -3,17 +3,17 @@ import '../models/student_model.dart';
 
 class StudentRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _collection = 'students'; // Bzw. 'users', je nach deiner Struktur
+  final String _collection = 'students'; //Variable Sammlung
 
   // Speichert oder aktualisiert die Studentendaten
   Future<void> saveStudentData(StudentModel student) async {
-    try {
+    try { //await-Programm wartet, bis die in fb geschrieben 
       await _firestore.collection(_collection).doc(student.id).set(
-            student.toMap(),
+            student.toMap(), //Objekt in ein Datenbankformat umzuwandeln
             SetOptions(merge: true),
           );
     } catch (e) {
-      throw Exception('Fehler beim Speichern der Studentendaten: $e');
+      throw Exception('Fehler beim Speichern der Studentendaten: $e'); //gibt den Fehler an das ViewModel weiter,
     }
   }
 
@@ -31,7 +31,7 @@ class StudentRepository {
     }
   }
 
-  // Holt alle einzigartigen Skills aller Studenten
+  // Holt alle  Skills aller Studenten
   Future<List<String>> getAllStudentSkills() async {
     try {
       final querySnapshot = await _firestore.collection(_collection).get();
@@ -41,11 +41,12 @@ class StudentRepository {
 
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
-        if (data.containsKey('skills')) {
+
+        if (data.containsKey('skills')) { //Gibt es das Feld skills im Dokument?
           // Wir gehen davon aus, dass 'skills' eine Liste ist
           final List<dynamic> skills = data['skills'];
           for (var skill in skills) {
-            uniqueSkills.add(skill.toString().trim());
+            uniqueSkills.add(skill.toString().trim()); //trim Entfernt überflüssige Leerzeichen
           }
         }
       }
@@ -64,19 +65,19 @@ class StudentRepository {
     try {
       final querySnapshot = await _firestore.collection(_collection).get();
       
-      List<StudentModel> matchedStudents = [];
+      List<StudentModel> matchedStudents = []; //die passenden Studenten gespeichert.
 
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
         final List<dynamic> studentSkills = data['skills'] ?? [];
         
         // Prüfen ob der Student mindestens einen der gewählten Skills hat
-        final hasMatchingSkill = studentSkills.any(
-          (skill) => selectedSkills.contains(skill.toString().trim())
+        final hasMatchingSkill = studentSkills.any(  //any. mindestens ein Element wahr
+          (skill) => selectedSkills.contains(skill.toString().trim()) // wahr o. falsch
         );
 
-        if (hasMatchingSkill) {
-          matchedStudents.add(StudentModel.fromMap(data, doc.id));
+        if (hasMatchingSkill) { //prüft ob die Variable wahr ist 
+          matchedStudents.add(StudentModel.fromMap(data, doc.id)); //fügt liste neue Objekt zu
         }
       }
 

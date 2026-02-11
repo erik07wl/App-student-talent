@@ -3,15 +3,16 @@ import 'register_view.dart';
 import 'login_view.dart';
 
 class StartView extends StatelessWidget {
-  const StartView({super.key});
+  const StartView({super.key}); //const deklariert ist, wird es nur ein einziges Mal erstellt.
 
-  @override
-  Widget build(BuildContext context) {
+  @override //überschreibt eine Methode der Elternklasse Stateless...
+  Widget build(BuildContext context) { // build beschreibt UI
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
+      appBar: AppBar( // obere Bereich Titel + Buttons
         backgroundColor: Colors.white,
         elevation: 0,
+
         title: const Text("TalentMatch", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
         actions: [
           TextButton(
@@ -20,11 +21,12 @@ class StartView extends StatelessWidget {
           ),
         ],
       ),
+      
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Padding(  //child = untergeordnet
+          padding: const EdgeInsets.symmetric(horizontal: 30), // Fügt links und rechts 30px Abstand hinzu
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center, //Zentriert alles vertikal
             children: [
               const Text(
                 "Finde dein perfektes Match.",
@@ -39,7 +41,7 @@ class StartView extends StatelessWidget {
               ),
               const SizedBox(height: 50),
               
-              // Button für Studenten (Grün wie im Flask-Projekt)
+              // Button für Studenten (Grün)
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2ECC71),

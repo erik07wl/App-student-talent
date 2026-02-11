@@ -7,6 +7,7 @@ class StudentModel {
   final String description;
 
   StudentModel({
+    //required: Felder zwingend ein Wert übergeben werden muss.
     required this.id,
     required this.name,
     required this.email,
@@ -30,6 +31,7 @@ class StudentModel {
   // Konvertiert Student-Objekt in Map für Firebase
   Map<String, dynamic> toMap() {
     return {
+      // name wird dem Schluessel name zugeordnet --> Fb 
       'name': name,
       'email': email,
       'studyProgram': university,
