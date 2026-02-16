@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../repositories/match_repository.dart';
+import '../../repositories/chat_repository.dart'; // Neu
+import '../chat/chat_view.dart'; // Neu
 
 /// Postfach-Ansicht für Arbeitgeber, die alle bereits gelikten Studenten anzeigt.
 ///
@@ -21,6 +23,7 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
   /// Repository-Instanz für den Zugriff auf die 'likes'-Collection in Firebase.
   /// Stellt Methoden zum Laden, Erstellen und Löschen von Likes bereit.
   final MatchRepository _matchRepository = MatchRepository();
+  final ChatRepository _chatRepository = ChatRepository(); // Neu
 
   /// Liste aller gelikten Studenten mit ihren Detaildaten.
   /// Jeder Eintrag ist eine Map mit Feldern wie 'studentName', 'studentEmail',
@@ -111,6 +114,48 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
         );
       }
     }
+  }
+
+  /// Öffnet einen Chat mit dem gelikten Studenten.
+  ///
+  /// Erstellt einen neuen Chat oder öffnet den bestehenden.
+  /// Lädt den Firmennamen aus der 'employers' Collection für den Chat-Header.
+  Future<void> _openChat(Map<String, dynamic> studentData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Firmennamen laden
+    String employerName = 'Unbekanntes Unternehmen';
+    final employerDoc = await FirebaseFirestore.instance
+        .collection('employers')
+        .doc(user.uid)
+        .get();
+    if (employerDoc.exists) {
+      employerName = employerDoc.data()?['companyName'] ?? employerName;
+    }
+
+    final studentName = studentData['studentName'] ?? 'Unbekannt';
+    final studentId = studentData['studentId'] ?? '';
+
+    // Chat erstellen oder bestehenden öffnen
+    final chatId = await _chatRepository.getOrCreateChat(
+      employerId: user.uid,
+      studentId: studentId,
+      employerName: employerName,
+      studentName: studentName,
+    );
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatView(
+          chatId: chatId,
+          chatPartnerName: studentName,
+        ),
+      ),
+    );
   }
 
   /// Baut die gesamte Inbox-UI auf.
@@ -359,9 +404,17 @@ class _EmployerInboxViewState extends State<EmployerInboxView> {
 
           // Aktionen
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Unlike Button
+              // Chat Button (NEU)
+              TextButton.icon(
+                onPressed: () => _openChat(studentData),
+                icon: const Icon(Icons.chat_outlined,
+                    size: 18, color: Colors.blue),
+                label: const Text('Chat starten',
+                    style: TextStyle(color: Colors.blue, fontSize: 13)),
+              ),
+              // Unlike Button (bestehend)
               TextButton.icon(
                 onPressed: () => _removeLike(likeId),
                 icon: const Icon(Icons.heart_broken_outlined,

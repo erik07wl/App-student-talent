@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../repositories/match_repository.dart';
+import '../../repositories/chat_repository.dart'; // Neu
+import '../chat/chat_view.dart'; // Neu
 
 class StudentInboxView extends StatefulWidget {
   const StudentInboxView({super.key});
@@ -12,6 +14,7 @@ class StudentInboxView extends StatefulWidget {
 
 class _StudentInboxViewState extends State<StudentInboxView> {
   final MatchRepository _matchRepository = MatchRepository();
+  final ChatRepository _chatRepository = ChatRepository(); // Neu
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
 
@@ -40,6 +43,48 @@ class _StudentInboxViewState extends State<StudentInboxView> {
       await _matchRepository.markAllAsRead(user.uid);
       _loadNotifications(); // Neu laden
     }
+  }
+
+  /// Öffnet einen Chat mit dem Employer, der den Studenten geliked hat.
+  ///
+  /// Erstellt einen neuen Chat oder öffnet den bestehenden.
+  /// Lädt den Studentennamen aus der 'students' Collection für den Chat-Header.
+  Future<void> _openChat(Map<String, dynamic> notification) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Studentennamen laden
+    String studentName = 'Unbekannt';
+    final studentDoc = await FirebaseFirestore.instance
+        .collection('students')
+        .doc(user.uid)
+        .get();
+    if (studentDoc.exists) {
+      studentName = studentDoc.data()?['name'] ?? studentName;
+    }
+
+    final employerId = notification['senderId'] ?? '';
+    final employerName = notification['senderName'] ?? 'Unbekannt';
+
+    // Chat erstellen oder bestehenden öffnen
+    final chatId = await _chatRepository.getOrCreateChat(
+      employerId: employerId,
+      studentId: user.uid,
+      employerName: employerName,
+      studentName: studentName,
+    );
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatView(
+          chatId: chatId,
+          chatPartnerName: employerName,
+        ),
+      ),
+    );
   }
 
   @override
@@ -134,7 +179,7 @@ class _StudentInboxViewState extends State<StudentInboxView> {
 
     return GestureDetector(
       onTap: () async {
-        // Als gelesen markieren beim Antippen
+        // Als gelesen markieren
         if (!isRead && notificationId.isNotEmpty) {
           await _matchRepository.markAsRead(notificationId);
           _loadNotifications();
@@ -220,9 +265,27 @@ class _StudentInboxViewState extends State<StudentInboxView> {
                   const SizedBox(height: 8),
                   Text(
                     timeAgo,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[400],
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+
+                  // Chat-Button (NEU)
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 32,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _openChat(notification),
+                      icon: const Icon(Icons.chat_outlined, size: 14),
+                      label: const Text('Antworten',
+                          style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
                     ),
                   ),
                 ],
