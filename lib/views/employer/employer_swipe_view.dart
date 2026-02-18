@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/student_model.dart';
 import '../../repositories/student_repository.dart';
 import '../../repositories/match_repository.dart'; // Neu
+import '../../views/match_score_view.dart';
+import '../../repositories/match_score_repository.dart';
 
 /// Tinder-ähnliche Swipe-Ansicht, in der der Arbeitgeber durch gefilterte
 /// Studentenprofile swipen kann.
@@ -390,11 +392,25 @@ class _EmployerSwipeViewState extends State<EmployerSwipeView> {
                     ],
                   ),
                 ),
+                // Match-Score Badge oben rechts
+                MatchScoreBadge(
+                  studentSkills: student.skills,
+                  requiredSkills: widget.selectedSkills,
+                  size: 56,
+                ),
               ],
             ),
-            const SizedBox(height: 24),
-            const Divider(),
             const SizedBox(height: 16),
+
+            // Match-Score Details
+            MatchScoreDetails(
+              studentSkills: student.skills,
+              requiredSkills: widget.selectedSkills,
+            ),
+
+            const SizedBox(height: 8),
+            const Divider(),
+            const SizedBox(height: 8),
             const Text(
               'Über mich',
               style: TextStyle(
