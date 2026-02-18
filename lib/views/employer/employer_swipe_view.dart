@@ -6,7 +6,7 @@ import '../../models/student_model.dart';
 import '../../repositories/student_repository.dart';
 import '../../repositories/match_repository.dart'; // Neu
 import '../../views/match_score_view.dart';
-import '../../repositories/match_score_repository.dart';
+
 
 /// Tinder-ähnliche Swipe-Ansicht, in der der Arbeitgeber durch gefilterte
 /// Studentenprofile swipen kann.
