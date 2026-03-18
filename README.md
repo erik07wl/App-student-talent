@@ -3,8 +3,11 @@
 
 
 ## Name
-Patzer, Fabian 77207789039  
-Wlochal, Erik  77207303365
+Patzer, Fabian  
+Matr.NR  77207789039  
+
+Wlochal, Erik  
+Matr.NR  77207303365
 
 ## Ordnerstruktur
 
